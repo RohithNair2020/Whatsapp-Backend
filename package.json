@@ -1,0 +1,25 @@
+{
+    "name": "whatsapp-backend",
+    "version": "1.0.0",
+    "description": "The backend for the Whatsapp clone app",
+    "main": "server.js",
+    "type": "module",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "start": "node server.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/RohithNair2020/Whatsapp-Backend.git"
+    },
+    "author": "Rohith_Nair",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/RohithNair2020/Whatsapp-Backend/issues"
+    },
+    "homepage": "https://github.com/RohithNair2020/Whatsapp-Backend#readme",
+    "dependencies": {
+        "express": "^4.18.2",
+        "mongoose": "^6.8.0"
+    }
+}
