@@ -3,14 +3,15 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
+import dotenv from 'dotenv';
 
 //! Mongoose Model imports
 import Message from './Models/message.js';
 import User from './Models/user.js';
 
 //! db config
-const connection_url =
-    'mongodb+srv://rohith_nair:whatsapp2022@cluster0.ayl1psy.mongodb.net/?retryWrites=true&w=majority';
+dotenv.config();
+const connection_url = process.env.MONGO_URL;
 mongoose.set('strictQuery', true);
 mongoose.connect(connection_url, () => console.log('connected to Database'));
 
