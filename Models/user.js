@@ -6,7 +6,7 @@ const userSchema = mongoose.Schema({
     password: { type: String, required: true },
     contacts: { type: Array, default: [] },
     online: { type: Boolean, default: false },
-    stories: { type: [String], default: [] }
+    stories: { type: [String], default: [] },
 });
 
 const User = mongoose.model('user', userSchema);
