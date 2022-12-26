@@ -48,6 +48,25 @@ app.listen(port, () => {
 //     console.log('second', authorization);
 // };
 
+const verifyJWT = (req, res, next) => {
+    const token = req.headers['x-access-token'];
+    if (!token) {
+        res.status(401).send('Session timed out');
+    } else {
+        jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
+            if (err) {
+                res.status(401).json({
+                    auth: true,
+                    message: 'authentication failed',
+                });
+            } else {
+                req.userId = decoded.userId;
+            }
+        });
+    }
+    next();
+};
+
 //! api ////////////////////////////////////////////////////////////////////////////////
 //! api ////////////////////////////////////////////////////////////////////////////////
 //! api ////////////////////////////////////////////////////////////////////////////////
@@ -100,9 +119,54 @@ app.post('/api/login', async (req, res) => {
         expiresIn: 60 * 60,
     });
 
-    return res
-        .status(200)
-        .send({ token, userId: user.user_id, phone: user.phone });
+    return res.status(200).send({
+        auth: true,
+        token,
+        userId: user._id,
+        phone: user.phone,
+    });
+});
+
+//* fetch users
+app.get('/api/users', verifyJWT, async (req, res) => {
+    const users = await User.find({}, ['phone'], {
+        skip: 0, // staring row
+        limit: 5, // ending row
+        sort: {
+            phone: -1, // sort by this field
+        },
+    });
+    return res.status(200).send(users);
+});
+
+// eslint-disable-next-line consistent-return
+// app.get('/api/users', async (req, res) => {
+//     try {
+//         const users = await User.find();
+//         users
+//             .then((error, response) => {
+//                 if (error) {
+//                     return res.send(error);
+//                 }
+//                 return res.status(200).send(response);
+//             })
+//             .catch((err) => res.send(err));
+//     } catch (err) {
+//         return res.status(404).json({ err });
+//     }
+// });
+
+//* fetch messages
+app.post('/api/messages', verifyJWT, async (req, res) => {
+    const messages = await Message.find({
+        sender: {
+            $in: [req.body.sender, req.body.receiver],
+        },
+        receiver: {
+            $in: [req.body.sender, req.body.receiver],
+        },
+    });
+    return res.status(200).send(messages);
 });
 
 //* send message
