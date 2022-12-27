@@ -1,6 +1,9 @@
+/* eslint-disable no-console */
 /* eslint-disable import/extensions */
 //! package imports
 import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
@@ -17,8 +20,21 @@ const connectionUrl = process.env.MONGO_URL;
 mongoose.set('strictQuery', true);
 mongoose.connect(connectionUrl, () => console.log('connected to Database'));
 
-//! app config
+//! app and socket.io config
 const app = express();
+const server = http.createServer(app);
+// const io = new Server(server, {
+//     cors: {
+//         origin: 'http://localhost:4000',
+//         methods: ['GET', 'POST'],
+//     },
+// });
+const io = new Server(server, {
+    cors: {
+        origin: 'http://localhost:4000',
+        methods: ['GET', 'POST'],
+    },
+});
 
 //! middleware
 // ? This is an important line
@@ -35,9 +51,21 @@ const saltingRounds = 10;
 //     next();
 // });
 
+//! socket on connection
+io.on('connection', (socket) => {
+    console.log('a user connected : ', socket.id);
+    socket.on('disconnect', () => {
+        console.log('user disconnected');
+    });
+    socket.on('message_sent', () => {
+        console.log('message received');
+        io.emit('new_message');
+    });
+});
+
 //! configure port
 const port = process.env.PORT || 8090;
-app.listen(port, () => {
+server.listen(port, () => {
     console.log('server up at ', port);
 });
 
@@ -81,6 +109,7 @@ app.post('/api/register', (req, res) => {
             console.log(err);
         } else {
             const newUser = new User({
+                name: req.body.name,
                 phone: req.body.phone,
                 password: hash,
             });
@@ -111,6 +140,7 @@ app.post('/api/login', async (req, res) => {
     }
 
     const dataForToken = {
+        name: user.name,
         userId: user._id,
         phone: user.phone,
     };
@@ -122,6 +152,7 @@ app.post('/api/login', async (req, res) => {
     return res.status(200).send({
         auth: true,
         token,
+        name: user.name,
         userId: user._id,
         phone: user.phone,
     });
