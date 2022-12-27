@@ -160,7 +160,7 @@ app.post('/api/login', async (req, res) => {
 
 //* fetch users
 app.get('/api/users', verifyJWT, async (req, res) => {
-    const users = await User.find({}, ['phone'], {
+    const users = await User.find({}, ['name', 'phone'], {
         skip: 0, // staring row
         limit: 5, // ending row
         sort: {
