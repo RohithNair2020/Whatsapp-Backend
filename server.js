@@ -9,6 +9,8 @@ import cors from 'cors';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 //! Mongoose Model imports
 import Message from './Models/message.js';
@@ -21,8 +23,11 @@ mongoose.set('strictQuery', true);
 mongoose.connect(connectionUrl, () => console.log('connected to Database'));
 
 //! app and socket.io config
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 const app = express();
 const server = http.createServer(app);
+app.use(express.static(`${__dirname}/../../build`));
 // const io = new Server(server, {
 //     cors: {
 //         origin: 'http://localhost:4000',
