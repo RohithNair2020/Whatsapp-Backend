@@ -13,8 +13,8 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
 //! Mongoose Model imports
-import Message from '../Models/message.js';
-import User from '../Models/user.js';
+import Message from './Models/message.js';
+import User from './Models/user.js';
 
 //! db config
 dotenv.config();
