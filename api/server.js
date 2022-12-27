@@ -13,8 +13,8 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
 //! Mongoose Model imports
-import Message from './Models/message.js';
-import User from './Models/user.js';
+import Message from '../Models/message.js';
+import User from '../Models/user.js';
 
 //! db config
 dotenv.config();
@@ -36,7 +36,7 @@ app.use(express.static(`${__dirname}/../../build`));
 // });
 const io = new Server(server, {
     cors: {
-        origin: 'http://localhost:4000',
+        origin: process.env.CLIENT || 'http://localhost:4000',
         methods: ['GET', 'POST'],
     },
 });
