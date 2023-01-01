@@ -33,12 +33,7 @@ const __dirname = dirname(__filename);
 const app = express();
 const server = http.createServer(app);
 app.use(express.static(`${__dirname}/../../build`));
-// const io = new Server(server, {
-//     cors: {
-//         origin: 'http://localhost:4000',
-//         methods: ['GET', 'POST'],
-//     },
-// });
+
 const io = new Server(server, {
     cors: {
         origin: process.env.CLIENT,
@@ -182,6 +177,7 @@ app.post('/api/users/user', verifyJWT, async (req, res) => {
 //* fetch contacts
 app.post(
     '/api/contacts',
+    verifyJWT,
     asyncHandler(async (req, res) => {
         const { contactIDs } = req.body;
         const contacts = await User.find({ _id: { $in: contactIDs } });
@@ -193,7 +189,7 @@ app.post(
 );
 
 //* get existing chat
-app.get('/api/chat', async (req, res) => {
+app.get('/api/chat', verifyJWT, async (req, res) => {
     const { senderId, receiverId } = req.body;
     const comparison = senderId.localeCompare(receiverId);
     let chatId;
@@ -207,7 +203,7 @@ app.get('/api/chat', async (req, res) => {
 });
 
 //* fetch messages
-app.post('/api/messages', async (req, res) => {
+app.post('/api/messages', verifyJWT, async (req, res) => {
     const { sender, receiver } = req.body;
     const comparison = sender.localeCompare(receiver);
     let chatId;
@@ -226,6 +222,7 @@ app.post('/api/messages', async (req, res) => {
 //* send message
 app.post(
     '/api/messages/new',
+    verifyJWT,
     asyncHandler(async (req, res) => {
         const { sender, receiver, message } = req.body;
 
@@ -282,7 +279,7 @@ app.post(
 );
 
 //* get messages
-app.get('/api/messages/sync', (req, res) => {
+app.get('/api/messages/sync', verifyJWT, (req, res) => {
     Message.find((err, data) => {
         if (err) {
             return res.status(500).send(err);
