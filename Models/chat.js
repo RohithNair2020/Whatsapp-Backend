@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
-import { messageSchema } from './message';
+// eslint-disable-next-line import/extensions
+import { messageSchema } from './message.js';
 
 const chatSchema = mongoose.Schema({
     chatId: { type: String, unique: true },

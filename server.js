@@ -4,6 +4,7 @@
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
+import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
@@ -15,6 +16,8 @@ import { dirname } from 'path';
 //! Mongoose Model imports
 import Message from './Models/message.js';
 import User from './Models/user.js';
+import Chat from './Models/chat.js';
+import isUserInContacts from './utils.js';
 
 //! db config
 if (process.env.MODE !== 'production') {
@@ -27,7 +30,6 @@ mongoose.connect(connectionUrl, () => console.log('connected to Database'));
 //! app and socket.io config
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-console.log('this is the dirname', __dirname);
 const app = express();
 const server = http.createServer(app);
 app.use(express.static(`${__dirname}/../../build`));
@@ -66,7 +68,6 @@ io.on('connection', (socket) => {
         console.log('user disconnected');
     });
     socket.on('message_sent', () => {
-        console.log('message received');
         io.emit('new_message');
     });
 });
@@ -76,13 +77,6 @@ const port = process.env.PORT || 8090;
 server.listen(port, () => {
     console.log('server up at ', port);
 });
-
-//! helper functions
-// const getTokenFrom = (request) => {
-//     console.log('first', request);
-//     const authorization = request.get('authorization');
-//     console.log('second', authorization);
-// };
 
 const verifyJWT = (req, res, next) => {
     const token = req.headers['x-access-token'];
@@ -114,7 +108,7 @@ app.get('/api/', (req, res) => res.status(200).send('Welcome to Whatsapp'));
 app.post('/api/register', (req, res) => {
     bcrypt.hash(req.body.password, saltingRounds, (err, hash) => {
         if (err) {
-            console.log(err);
+            res.json({ err });
         } else {
             const newUser = new User({
                 name: req.body.name,
@@ -125,7 +119,6 @@ app.post('/api/register', (req, res) => {
                 if (error) {
                     res.status(500).json(error);
                 } else {
-                    console.log(response);
                     res.status(201).json(response);
                 }
             });
@@ -163,6 +156,7 @@ app.post('/api/login', async (req, res) => {
         name: user.name,
         userId: user._id,
         phone: user.phone,
+        contacts: user.contacts,
     });
 });
 
@@ -178,55 +172,119 @@ app.get('/api/users', verifyJWT, async (req, res) => {
     return res.status(200).send(users);
 });
 
-// eslint-disable-next-line consistent-return
-// app.get('/api/users', async (req, res) => {
-//     try {
-//         const users = await User.find();
-//         users
-//             .then((error, response) => {
-//                 if (error) {
-//                     return res.send(error);
-//                 }
-//                 return res.status(200).send(response);
-//             })
-//             .catch((err) => res.send(err));
-//     } catch (err) {
-//         return res.status(404).json({ err });
-//     }
-// });
+//* fetch single user
+app.post('/api/users/user', verifyJWT, async (req, res) => {
+    const { phone } = req.body;
+    const user = await User.findOne({ phone });
+    return res.status(200).json(user);
+});
+
+//* fetch contacts
+app.post(
+    '/api/contacts',
+    asyncHandler(async (req, res) => {
+        const { contactIDs } = req.body;
+        const contacts = await User.find({ _id: { $in: contactIDs } });
+        if (contacts) {
+            res.status(200).json(contacts);
+        }
+        res.status(500).json({ err: 'could not fetch contacts' });
+    }),
+);
+
+//* get existing chat
+app.get('/api/chat', async (req, res) => {
+    const { senderId, receiverId } = req.body;
+    const comparison = senderId.localeCompare(receiverId);
+    let chatId;
+    if (comparison === 1) {
+        chatId = senderId + receiverId;
+    } else {
+        chatId = receiverId + senderId;
+    }
+    const chat = await Chat.find({ chatId });
+    res.json(chat);
+});
 
 //* fetch messages
-app.post('/api/messages', verifyJWT, async (req, res) => {
-    const messages = await Message.find({
-        sender: {
-            $in: [req.body.sender, req.body.receiver],
-        },
-        receiver: {
-            $in: [req.body.sender, req.body.receiver],
-        },
-    });
-    return res.status(200).send(messages);
+app.post('/api/messages', async (req, res) => {
+    const { sender, receiver } = req.body;
+    const comparison = sender.localeCompare(receiver);
+    let chatId;
+    if (comparison === 1) {
+        chatId = sender + receiver;
+    } else {
+        chatId = receiver + sender;
+    }
+    const chat = await Chat.findOne({ chatId });
+    if (chat) {
+        return res.status(200).send(chat.messages);
+    }
+    return res.status(401).send('messages empty');
 });
 
 //* send message
-app.post('/api/messages/new', (req, res) => {
-    const newMessage = req.body;
+app.post(
+    '/api/messages/new',
+    asyncHandler(async (req, res) => {
+        const { sender, receiver, message } = req.body;
 
-    Message.create(newMessage, (err, data) => {
-        if (err) {
-            console.log(err);
-            res.status(500).send(err);
+        const newMessage = new Message({ sender, receiver, message });
+
+        // construct chatId for query
+        const comparison = sender.localeCompare(receiver);
+        let chatId;
+        if (comparison === 1) {
+            chatId = sender + receiver;
         } else {
-            res.status(200).send(data);
+            chatId = receiver + sender;
         }
-    });
-});
+        const chat = await Chat.findOne({ chatId });
+
+        // if chat exists already
+        if (chat) {
+            chat.messages.push(newMessage);
+            chat.lastMessage = message;
+            chat.save((err, response) => {
+                if (err) {
+                    return res.status(500).json(err);
+                }
+                return res.status(201).json({ response });
+            });
+            // if chat doesn't exist, create new and save message into it
+        } else {
+            const newChat = new Chat({
+                chatId,
+                messages: [newMessage],
+                lastMessage: newMessage.message,
+            });
+            newChat.save(async (err, response) => {
+                if (err) {
+                    return res.status(500).json(err);
+                }
+                const currentUser = await User.findOne({ _id: sender });
+                if (currentUser) {
+                    console.log(currentUser.contacts);
+                    if (!isUserInContacts(receiver, currentUser.contacts)) {
+                        console.log('no error');
+                        currentUser.contacts.push(receiver);
+                        currentUser.save((error, resp) => {
+                            console.log('error');
+                            if (err) res.send(`contact save error ${error}`);
+                            res.send(resp);
+                        });
+                    }
+                }
+                return res.status(201).json({ response });
+            });
+        }
+    }),
+);
 
 //* get messages
 app.get('/api/messages/sync', (req, res) => {
     Message.find((err, data) => {
         if (err) {
-            console.log(err);
             return res.status(500).send(err);
         }
         return res.status(201).send(data);
