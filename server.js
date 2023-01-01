@@ -17,7 +17,9 @@ import Message from './Models/message.js';
 import User from './Models/user.js';
 
 //! db config
-dotenv.config();
+if (process.env.MODE !== 'production') {
+    dotenv.config();
+}
 const connectionUrl = process.env.MONGO_URL;
 mongoose.set('strictQuery', true);
 mongoose.connect(connectionUrl, () => console.log('connected to Database'));
@@ -25,6 +27,7 @@ mongoose.connect(connectionUrl, () => console.log('connected to Database'));
 //! app and socket.io config
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+console.log('this is the dirname', __dirname);
 const app = express();
 const server = http.createServer(app);
 app.use(express.static(`${__dirname}/../../build`));
@@ -36,7 +39,7 @@ app.use(express.static(`${__dirname}/../../build`));
 // });
 const io = new Server(server, {
     cors: {
-        origin: process.env.CLIENT || 'http://localhost:4000',
+        origin: process.env.CLIENT,
         methods: ['GET', 'POST'],
     },
 });
