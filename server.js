@@ -112,10 +112,9 @@ app.post('/api/register', (req, res) => {
             });
             newUser.save((error, response) => {
                 if (error) {
-                    res.status(500).json(error);
-                } else {
-                    res.status(201).json(response);
+                    return res.status(500).json(error);
                 }
+                return res.status(201).json(response);
             });
         }
     });
@@ -182,9 +181,9 @@ app.post(
         const { contactIDs } = req.body;
         const contacts = await User.find({ _id: { $in: contactIDs } });
         if (contacts) {
-            res.status(200).json(contacts);
+            return res.status(200).json(contacts);
         }
-        res.status(500).json({ err: 'could not fetch contacts' });
+        return res.status(500).json({ err: 'could not fetch contacts' });
     }),
 );
 
@@ -199,7 +198,7 @@ app.get('/api/chat', verifyJWT, async (req, res) => {
         chatId = receiverId + senderId;
     }
     const chat = await Chat.find({ chatId });
-    res.json(chat);
+    return res.json(chat);
 });
 
 //* fetch messages
@@ -222,7 +221,6 @@ app.post('/api/messages', verifyJWT, async (req, res) => {
 //* send message
 app.post(
     '/api/messages/new',
-    verifyJWT,
     asyncHandler(async (req, res) => {
         const { sender, receiver, message } = req.body;
 
@@ -267,8 +265,10 @@ app.post(
                         currentUser.contacts.push(receiver);
                         currentUser.save((error, resp) => {
                             console.log('error');
-                            if (err) res.send(`contact save error ${error}`);
-                            res.send(resp);
+                            if (err) {
+                                return res.send(`contact save error ${error}`);
+                            }
+                            return res.send(resp);
                         });
                     }
                 }
