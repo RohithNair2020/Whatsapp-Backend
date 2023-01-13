@@ -220,7 +220,7 @@ app.post('/api/messages', verifyJWT, async (req, res) => {
 
 //* send message new
 app.post(
-    '/api/messages/new',
+    '/api/messages/new/test',
     asyncHandler(async (req, res) => {
         try {
             // get values from the request body
@@ -228,7 +228,6 @@ app.post(
 
             // construct new message
             const newMessage = new Message({ sender, receiver, message });
-            console.log(newMessage);
 
             // find the chat, use 'upsert' to create chat if doesn't exists, and push the message.
             let chatId;
@@ -247,7 +246,27 @@ app.post(
                 },
                 { upsert: true },
             );
-            return res.status(201).json({ response, message: 'updated' });
+
+            // include receiver in the sender's contact and vice-versa
+            const contactsEditResponse = await User.bulkWrite([
+                {
+                    updateOne: {
+                        filter: { _id: sender },
+                        update: { $push: { contacts: receiver } },
+                    },
+                },
+                {
+                    updateOne: {
+                        filter: { _id: receiver },
+                        update: { $push: { contacts: sender } },
+                    },
+                },
+            ]);
+
+            // finally, return the response
+            return res
+                .status(201)
+                .json({ messageResponse: response, contactsEditResponse });
         } catch (error) {
             return res.json(error);
         }
