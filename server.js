@@ -220,7 +220,8 @@ app.post('/api/messages', verifyJWT, async (req, res) => {
 
 //* send message new
 app.post(
-    '/api/messages/new/test',
+    '/api/messages/new',
+    verifyJWT,
     asyncHandler(async (req, res) => {
         try {
             // get values from the request body
