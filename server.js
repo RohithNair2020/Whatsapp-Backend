@@ -17,7 +17,7 @@ import { dirname } from 'path';
 import Message from './Models/message.js';
 import User from './Models/user.js';
 import Chat from './Models/chat.js';
-import isUserInContacts from './utils.js';
+// import isUserInContacts from './utils.js';
 
 //! db config
 if (process.env.MODE !== 'production') {
@@ -218,62 +218,38 @@ app.post('/api/messages', verifyJWT, async (req, res) => {
     return res.status(401).send('messages empty');
 });
 
-//* send message
+//* send message new
 app.post(
     '/api/messages/new',
     asyncHandler(async (req, res) => {
-        const { sender, receiver, message } = req.body;
+        try {
+            // get values from the request body
+            const { sender, receiver, message } = req.body;
 
-        const newMessage = new Message({ sender, receiver, message });
+            // construct new message
+            const newMessage = new Message({ sender, receiver, message });
+            console.log(newMessage);
 
-        // construct chatId for query
-        const comparison = sender.localeCompare(receiver);
-        let chatId;
-        if (comparison === 1) {
-            chatId = sender + receiver;
-        } else {
-            chatId = receiver + sender;
-        }
-        const chat = await Chat.findOne({ chatId });
-
-        // if chat exists already
-        if (chat) {
-            chat.messages.push(newMessage);
-            chat.lastMessage = message;
-            chat.save((err, response) => {
-                if (err) {
-                    return res.status(500).json(err);
-                }
-                return res.status(201).json({ response });
-            });
-            // if chat doesn't exist, create new and save message into it
-        } else {
-            const newChat = new Chat({
-                chatId,
-                messages: [newMessage],
-                lastMessage: newMessage.message,
-            });
-            newChat.save(async (err, response) => {
-                if (err) {
-                    return res.status(500).json(err);
-                }
-                const currentUser = await User.findOne({ _id: sender });
-                if (currentUser) {
-                    console.log(currentUser.contacts);
-                    if (!isUserInContacts(receiver, currentUser.contacts)) {
-                        console.log('no error');
-                        currentUser.contacts.push(receiver);
-                        currentUser.save((error, resp) => {
-                            console.log('error');
-                            if (err) {
-                                return res.send(`contact save error ${error}`);
-                            }
-                            return res.send(resp);
-                        });
-                    }
-                }
-                return res.status(201).json({ response });
-            });
+            // find the chat, use 'upsert' to create chat if doesn't exists, and push the message.
+            let chatId;
+            const comparison = sender.localeCompare(receiver);
+            if (comparison === 1) {
+                chatId = sender + receiver;
+            } else {
+                chatId = receiver + sender;
+            }
+            const response = await Chat.updateOne(
+                { chatId },
+                {
+                    $setOnInsert: { chatId, lastMessage: '' },
+                    $push: { messages: newMessage },
+                    // $set: { lastMessage: message },
+                },
+                { upsert: true },
+            );
+            return res.status(201).json({ response, message: 'updated' });
+        } catch (error) {
+            return res.json(error);
         }
     }),
 );
